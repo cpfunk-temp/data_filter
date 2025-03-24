@@ -24,6 +24,15 @@ sensor_data* add_dataPoint(sensor_data* data_buffer, uint8_t* const data_buffer_
 	return data_buffer;
 }
 
+void print_data(sensor_data* data, uint8_t sz)
+{
+	uint8_t i;
+	for (i = 0; i < sz; i++)
+	{
+		printf("%d\t%f\n", data[i].angle, data[i].dist);
+	}
+}
+
 void free_dataPoints(sensor_data** data_buffer, uint8_t* const data_buffer_sz)
 {
 	free(*data_buffer);
@@ -79,7 +88,13 @@ obj_data* getObjects(obj_data* obj_list, uint8_t* const obj_list_sz, float cm_pi
 	//get data from input
 	void* new_p;
 	new_p = get_dataPoints(data_buffer, &data_buffer_sz);
-	if (new_p != NULL) data_buffer = new_p; 
+	if (new_p != NULL) data_buffer = new_p;
+
+	//filter data
+	filter_data(data_buffer, data_buffer_sz, 0.0, 2.0, 0.20, 4);
+
+	//print filtered data
+	//print_data(data_buffer, data_buffer_sz);
 
 	//analyze data from input
 	uint8_t start_i = 0;

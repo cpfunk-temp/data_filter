@@ -1,9 +1,3 @@
-#include <stdlib.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include "find_objects.h"
 #include "data_filter.h"
 
 typedef struct
@@ -62,65 +56,92 @@ float findMin_dist(sensor_data* data, uint8_t size)
 	return minVal;
 }
 
-sensor_data* filter_data(sensor_data* data, uint8_t sz, uint8_t desired_range)
+float moving_avg(float avg, uint16_t i, float data)
+{
+  return avg + (data - avg) / i;
+}
+
+void filter_data(sensor_data* data, uint8_t sz, float range_low, float range_high, float percent, uint8_t spike_width)
 {
   //find max and min data values
   float max_dist = findMax_dist(data, sz);
   float min_dist = findMin_dist(data, sz);
-  float dist_range = max_dist - min_dist; 
-  float qtr_dist = dist_range / 4.0;
-  if ((dist_range / desired_range) > 2 || (dist_range / desired_range) < 0.5)
-  {
-    printf("no objects captured in data\n");
-    return data;
-  }
-
-  //find deltas
-  delta* deltas = calloc(sz, sizeof(delta));
-  if (deltas == NULL)
-  {
-    printf("calloc in filter_data failed\n");
-    return data;
-  }
-
-  uint8_t i;
-  for (i = 0; i < sz - 1; i++)
-  {
-    deltas[i].delta = data[i].dist - data[i + 1].dist;
-    deltas[i].i = i;
-  }
-
-  //find max deltas
-  qsort(deltas, sz, sizeof(deltas[0]), delta_comp);
-
-  //get all deltas greater than 2 quarters
-  void* new_ptr;
-  uint8_t detla_sz;
-  for (i = 0; i < sz; i++)
-  {
-    if (fabs(deltas[i].delta) < 2 * qtr_dist)
-    {
-      detla_sz = i;
-      new_ptr = realloc(deltas, sizeof(delta) * detla_sz);
-      if (new_ptr != NULL) deltas = new_ptr;
-      break;
-    }
-  }
-
-  //sort deltas by index
-  qsort(deltas, sz, sizeof(deltas[0]), i_comp);
-
-  //make sure deltas have matching pairs of rising and falling edges
+  float dist_range = max_dist - min_dist;
+  float cutoff = range_high - (range_high - range_low) * percent;
   
 
-  sensor_data data_chunks[][] = NULL;
-
-  //break sensor data array into chunks based on deltas
-  for (i = 0; i < detla_sz; i++)
+  uint8_t i;
+  uint8_t start_i = 0;
+  uint8_t is_bump;
+  float avg;
+  float delta;
+  float prev_delta = 0;
+  float prev_dist = range_high;
+  for (i = 0; i < sz; i++)
   {
+    //subtitute values near range_high
+    if (data[i].dist > cutoff)
+    {
+      data[i].dist = range_high;
+    }
 
+    //check for change in values greater than percent change
+    if (i != sz - 1)
+    {
+      delta = data[i].dist - prev_dist;
+    }
+    else
+    {
+      delta = range_high - prev_dist;
+    }
+
+    if (fabs(delta) > dist_range * percent)
+    {
+      //substitute values between deltas with value of current moving average
+      uint8_t j;
+      for (j = start_i; j < i; j++)
+      {
+        data[j].dist = avg;
+      }
+
+      //if the is range corresponds to a bump rather than a dip
+      //and (i - start_i) is smaller than minimum width
+      //then these values correspond to a spike
+      is_bump = prev_delta < 0 && delta > 0;
+      if (is_bump && i - start_i <= spike_width)
+      {
+        //set start index to 1 less than start_i
+        uint8_t st_i = start_i - (start_i != 0);
+        
+        //check if value is at edge of sensor data
+        if (st_i == 0)
+        {
+           data[st_i].dist = range_high;
+        }
+        else if (i == sz - 1)
+        {
+          data[i].dist = range_high;
+        }
+
+        //interpolate inbetween values
+        float m = (data[i].dist - data[st_i].dist) / (i - st_i);
+        for (j = st_i; j <= i; j++)
+        {
+          data[j].dist = m * j + data[st_i].dist;
+        }
+      }
+
+      //reset avg to zero
+      avg = 0;
+      //update start index
+      start_i = i;
+      //update prev_delta
+      prev_delta = delta;
+    }
+
+    //collect moving average
+    avg = moving_avg(avg, (i - start_i) + 1, data[i].dist);
+
+    prev_dist = data[i].dist;
   }
-
-  free(deltas);
-  return data; 
 }

@@ -11,7 +11,7 @@ void print_objects(obj_data* objs, uint8_t obj_count)
     uint8_t i;
     for (i = 0; i < obj_count; i++)
     {
-        printf("Angular width:%d Width:%.3f Angle:%d Distance:%.1f Number:%d\r\n", objs[i].delta, objs[i].width, objs[i].bisector, objs[i].dist, i + 1);
+        printf("Angular width:%d Width:%.3f Angle:%d Distance:%.2f Number:%d\r\n", objs[i].delta, objs[i].width, objs[i].bisector, objs[i].dist, i + 1);
     }
 }
 

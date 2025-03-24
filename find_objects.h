@@ -6,19 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-
-//struct to store collected sensor data and angles
-typedef struct {
-	float dist;
-	uint8_t angle;
-} sensor_data;
-
-typedef struct {
-	float dist;
-	float width;
-	int16_t delta;
-	int16_t bisector;
-} obj_data;
+#include "data_filter.h"
 
 void free_objs(obj_data** objects, uint8_t* const size);
 
